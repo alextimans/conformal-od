@@ -1,4 +1,4 @@
-# Two-step conformal object detection
+# Object Detection via Conformal Prediction
 This is the public code repository for our paper <br>
 [Adaptive Bounding Box Uncertainties via Two-Step Conformal Prediction](https://arxiv.org/abs/2403.07263) <br>
 presented at ECCV 2024.
