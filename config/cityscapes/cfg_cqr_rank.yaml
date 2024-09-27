@@ -1,0 +1,114 @@
+########################
+### BASE CONFIG FILE ###
+########################
+
+PROJECT:
+  CODE_DIR: "conformalbb"
+  CONFIG_DIR: "conformalbb/config"
+  CHECKPOINT_DIR: "checkpoints"
+  RESULTS_DIR: "results"
+  OUTPUT_DIR: &outputdir "../../../../media/atimans/hdd/output"
+  PLOT_DIR: "plots"
+  SEED: &seed 6666666
+
+
+DATASETS:
+  DIR: "../../../../media/atimans/hdd/datasets"
+  DATASET:
+    NAME: "cityscapes"
+    IMG_DIR: "cityscapes/leftImg8bit/train"
+    ANN_FILE: "cityscapes/gtFine/train"
+    METADATA_FILE: null
+    FORMAT: "cityscapes"
+    # set to BGR for coco, RGB for bdd and cityscapes
+    CHANNELS: &channels "RGB"
+    # set to true for coco, false for bdd and cityscapes
+    FILTER_EMPTY: false
+
+
+DATALOADER:
+  TRAIN:
+    TOTAL_BATCH_SIZE: &batchsize 16
+    ASPECT_RATIO_GROUPING: &aspectratio true 
+    NUM_WORKERS: &num_workers 0
+    COLLATE_FN: &collate null
+  TEST:
+    BATCH_SIZE: 1
+    NUM_WORKERS: *num_workers
+    COLLATE_FN: *collate
+
+
+CALIBRATION:
+  FRACTION: 0.5
+  TRIALS: 100
+  BOX_CORRECTION: "rank_coord"
+  BOX_SET_STRATEGY: "max" 
+
+
+# for CQRConf and QR training 
+QUANTILE_REGRESSION:
+  QUANTILES:
+  - 0.05
+  - 0.5
+  - 0.95
+  FREEZE_PARAMS: "all"
+  QUANTILE_INDICES:
+  - 0
+  - 2
+
+
+MODEL:
+  NAME: "Faster R-CNN X101-FPN"
+  ID: "x101fpn"
+  LOCAL_CHECKPOINT: true
+  CHECKPOINT_PATH: "checkpoints/x101fpn_train_qr_5k_postprocess/model_0002999.pth"
+  FILE: "COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml"
+  DEVICE: &device "cpu"
+  # set to false for EnsConf
+  AP_EVAL: true
+  BOX_MATCHING: "box"
+  IOU_THRESH_TEST: 0.5 
+  CLASS_MATCHING: false
+
+
+  # DETECTRON2 MODEL CONFIG
+  CONFIG:
+    OUTPUT_DIR: *outputdir
+    SEED: *seed
+    INPUT:
+      CROP:
+        ENABLED: false
+        SIZE:
+        - 0.9
+        - 0.9
+        TYPE: "relative_range"
+      FORMAT: *channels
+      MASK_FORMAT: "polygon"
+      MAX_SIZE_TEST: 1333
+      MAX_SIZE_TRAIN: 1333
+      MIN_SIZE_TEST: 800
+      MIN_SIZE_TRAIN:
+      - 640
+      - 672
+      - 704
+      - 736
+      - 768
+      - 800
+      MIN_SIZE_TRAIN_SAMPLING: "choice"
+      RANDOM_FLIP: "horizontal"
+    DATALOADER:
+      ASPECT_RATIO_GROUPING: *aspectratio
+      NUM_WORKERS: *num_workers
+    MODEL:
+      DEVICE: *device
+      ROI_HEADS:
+        NAME: QuantileROIHead
+        NUM_CLASSES: 80
+        SCORE_THRESH_TEST: 0.5
+        NMS_THRESH_TEST: 0.6
+    SOLVER:
+      BASE_LR: 0.02
+      CHECKPOINT_PERIOD: 500
+      IMS_PER_BATCH: *batchsize
+      MAX_ITER: 5000
+    

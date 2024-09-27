@@ -1,0 +1,29 @@
+name: conformalod
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - albumentations
+  - json
+  - google-colab
+  - matplotlib
+  - notebook
+  - numpy
+  - opencv
+  - pandas
+  - pathtools
+  - pillow
+  - pip
+  - pycocotools
+  - python
+  - pytorch
+  - pyyaml
+  - scipy
+  - torchvision
+  - tqdm
+  - typing
+  - wandb
+  - yaml
+  - pip:
+    - markdown
+    - yacs

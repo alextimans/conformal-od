@@ -1,0 +1,216 @@
+#############################
+### REFERENCE CONFIG FILE ###
+#############################
+
+# Reference config file with argument descriptions
+# Contains all possible arguments, some of which are not used in all scripts
+# d2 = detectron2 library
+
+# See also for YAML syntax:
+# https://yaml.org/spec/1.2.2/
+# https://pyyaml.org/wiki/PyYAMLDocumentation
+
+PROJECT:
+  # all dir assumed to be relative to work dir
+  CODE_DIR: "conformalbb"
+  CONFIG_DIR: "conformalbb/config"
+  CHECKPOINT_DIR: "checkpoints"
+  RESULTS_DIR: "results"
+  OUTPUT_DIR: &outputdir "output"
+  PLOT_DIR: "plots"
+  # used to set all seeds
+  SEED: &seed 6666666
+
+
+DATASETS:
+  DIR: "datasets"
+  DATASET:
+    # id for d2 registration, try to avoid inbuilt dataset names
+    NAME: "coco_val"
+    # dir with actual imgs
+    IMG_DIR: "coco/val2017"
+    # dir or file with annotations
+    ANN_FILE: "coco/annotations/instances_val2017.json"
+    # metadata file for dataset-specific info; default null
+    METADATA_FILE: null # or YAML file path
+    # used to determine dataset formatting fct; coco, bdd, cityscapes
+    FORMAT: "coco"
+    # coco imgs use cv2 and come in BGR, bdd and cityscapes use PIL and come in RGB
+    CHANNELS: &channels "BGR" 
+    # filter out imgs with no instance annotations from d2 dataset loading
+    # set to true for coco, false for bdd and cityscapes
+    FILTER_EMPTY: false
+
+
+DATALOADER:
+  TRAIN: # ignored during inference calls
+    # training batch size across all devices
+    TOTAL_BATCH_SIZE: &batchsize 16
+    # group images with similar aspect ratios together for efficiency
+    ASPECT_RATIO_GROUPING: &aspectratio true 
+    NUM_WORKERS: &num_workers 0
+    COLLATE_FN: &collate null
+  TEST:
+    BATCH_SIZE: 1
+    NUM_WORKERS: *num_workers
+    COLLATE_FN: *collate
+
+
+CALIBRATION:
+  # fraction of total nr of imgs with class instances to use for calibration
+  FRACTION: 0.5
+  # nr of trials/splits/runs to average metrics over 
+  TRIALS: 100 
+  # box-level quantile/MHT correction scheme; 
+  # options:
+  #   naive_max, naive_mean, naive_quant, bonferroni, bonferroni_sidak
+  #   holm, holm_sidak, simes, rank_global, rank_coord, score_global, null
+  # of primary interest: 
+  #   bonferroni, rank_global, rank_coord, score_global
+  BOX_CORRECTION: "rank_coord" 
+  # box quantile selection strategy given a label set
+  BOX_SET_STRATEGY: "max"
+  # for EnsConf: construct one-sided prediction intervals?
+  # used for fair comparison to baselines
+  ONE_SIDED_PI: false
+
+
+# for CQRConf and QR training 
+QUANTILE_REGRESSION:
+  # the quantiles we are training for
+  # should match with the quantiles in model/qr_cfg.yaml
+  QUANTILES:
+  - 0.05
+  - 0.5
+  - 0.95
+  # which model parameters to freeze during QR training
+  # options: all, head
+  # all: freeze all params incl. class and mean prediction in last layer
+  # head: freeze all params except anything in the final box_predictor head
+  FREEZE_PARAMS: "all"
+  # indices denoting lower and upper quantile to use for conformity scores
+  # i.e. the indices of the two selected quantiles in QUANTILES
+  QUANTILE_INDICES:
+  - 0
+  - 2
+
+
+MODEL:
+  # given name used for logging
+  NAME: "Faster R-CNN X101-FPN"
+  # given id used for logging and file naming
+  ID: "x101fpn"
+  # should we load the model from a local checkpoint? (relevant for CQRConf)
+  LOCAL_CHECKPOINT: false
+  # if LOCAL_CHECKPOINT is true, provide the path to the checkpoint
+  # otherwise this argument can be ignored
+  CHECKPOINT_PATH: null
+  # the path to the default model config file for the base model
+  FILE: "COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml"
+  # computing device, may be overriden by CLI and script check; options: cpu, cuda
+  DEVICE: &device "cpu"
+  # should we evaluate AP performance? For EnsConf throws error
+  AP_EVAL: true
+  # for pred-gt box matching; options: box, max
+  # box: IoU-based hungarian matching, returns TP only
+  # max: IoU-based greedy matching, returns TP and FP
+  BOX_MATCHING: "box"
+  # for filtering process to obtain TP matches, higher is more strict
+  # used only in box matching to identify FN
+  IOU_THRESH_TEST: 0.5 
+  # also filter based on class label matching?
+  # if true then pred and gt boxes must have same class label to be valid TP
+  # IMPORTANT: set to false for any label set constructions !
+  CLASS_MATCHING: false
+
+
+  # for EnsConf
+  ENSEMBLE:
+    # should we use a hyperparameter ensemble?
+    PARAMS: false
+    # if PARAMS is true, provide parameter values to use, else ignore
+    # two relevant inference parameters: [NMS_THRESH_TEST, SCORE_THRESH_TEST]
+    PARAMS_VALUES:
+    - [0.7, 0.05]
+    - [0.8, 0.05]
+    # ensemble size
+    SIZE: 5
+    # weighting scheme used for fusing ensemble predictions
+    # score: score-based weighting of box coordinates
+    # null: simple averaging
+    WEIGHTS: "score"
+    # min nr of object detections across ensemble to consider GT as reliably detected
+    # can be set to any value in [2, ensemble size]
+    MIN_DETECTS: 2
+    # in case of model ensemble, provide name, id and file paths to configs, as for single model
+    NAME:
+    - "Faster R-CNN R50-FPN"
+    - "Faster R-CNN R50-DC5"
+    ID:
+    - "r50fpn"
+    - "r50dc5"
+    FILE:
+    - "COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"
+    - "COCO-Detection/faster_rcnn_R_50_DC5_3x.yaml"
+
+
+  # this section has to follow exactly the structure of detectron2 model config files
+  # it is used to override any detectron2 model-specific defaults
+  # the values below are only a selection, see here for all options: 
+  # https://detectron2.readthedocs.io/en/latest/modules/config.html#yaml-config-references
+  # based on d2_default/cfg_d2_rcnn_x101_fpn_default.yaml
+  CONFIG:
+    OUTPUT_DIR: *outputdir
+    SEED: *seed
+    INPUT:
+      CROP:
+        ENABLED: false
+        SIZE:
+        - 0.9
+        - 0.9
+        TYPE: "relative_range"
+      FORMAT: *channels
+      MASK_FORMAT: "polygon"
+      # used for train and test img resizing
+      # training default is [ResizeShortestEdge(short_edge_length=(640, 672, 704, 736, 768, 800), max_size=1333, sample_style='choice'), RandomFlip(horizontal=True, vertical=False)]
+      # test default is [ResizeShortestEdge(short_edge_length=(800, 800), max_size=1333, sample_style='choice')]
+      MAX_SIZE_TEST: 1333
+      MAX_SIZE_TRAIN: 1333
+      MIN_SIZE_TEST: 800
+      MIN_SIZE_TRAIN:
+      - 640
+      - 672
+      - 704
+      - 736
+      - 768
+      - 800
+      MIN_SIZE_TRAIN_SAMPLING: "choice"
+      RANDOM_FLIP: "horizontal"
+    DATALOADER:
+      ASPECT_RATIO_GROUPING: *aspectratio
+      NUM_WORKERS: *num_workers
+    MODEL:
+      DEVICE: *device
+      ROI_HEADS:
+        # ROI Head class name, insert custom class QuantileROIHead for CQRConf
+        NAME: StandardROIHeads
+        # nr of object classes; default is 80 for coco
+        NUM_CLASSES: 80
+        # used for box proposal filtering, higher is more strict
+        # boxes with scores < SCORE_THRESH_TEST are surpressed
+        SCORE_THRESH_TEST: 0.5
+        # used for box proposal filtering, lower is more strict
+        # boxes with IoU >= NMS_THRESH_TEST are surpressed
+        # i.e. if two proposal boxes have a high overlap, only the one with the higher score is kept
+        NMS_THRESH_TEST: 0.6
+    # relevant for QR training
+    SOLVER:
+      # learning rate
+      BASE_LR: 0.02
+      # checkpoint every x iterations
+      CHECKPOINT_PERIOD: 500
+      # batch size
+      IMS_PER_BATCH: *batchsize
+      # training cycles, alternative to nr of epochs
+      MAX_ITER: 5000
+    
