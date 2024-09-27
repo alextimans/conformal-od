@@ -1,7 +1,11 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *$py.class
+
+# Apple system files
+.DS_Store
 
 # C extensions
 *.so
@@ -77,6 +81,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+.ipynb_checkpoints/
 
 # IPython
 profile_default/
