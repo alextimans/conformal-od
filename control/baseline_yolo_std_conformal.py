@@ -34,6 +34,8 @@ class YOLOStdConformal(RiskControl):
     Model baseline: YOLOv3 + StdConformal (as opposed to using Faster R-CNN from detectron2).
     Code reuses a lot from std_conformal.py and adds model-specific parts.
     
+    Ref: https://github.com/motokimura/PyTorch_Gaussian_YOLOv3
+    
     CLI run examples:
     python conformalbb/control/baseline_yolo_std_conformal.py --config_file=cfg_base_yolo --config_path=conformalbb/config/coco_val --run_collect_pred --save_file_pred --risk_control=std_conf --alpha=0.1 --run_risk_control --save_file_control --run_eval --save_file_eval --file_name_suffix=_std_rank --device=cuda
     python conformalbb/control/baseline_yolo_std_conformal.py --config_file=cfg_base_yolo --config_path=conformalbb/config/coco_val --load_collect_pred=std_conf_yolov3_base_std_rank --risk_control=std_conf --alpha=0.1 --run_risk_control --save_file_control --run_eval --save_file_eval --file_name_suffix=_base_std_max --device=cuda

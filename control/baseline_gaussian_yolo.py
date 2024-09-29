@@ -42,6 +42,7 @@ class GaussianYOLO(RiskControl):
     python conformalbb/control/baseline_gaussian_yolo.py --config_file=cfg_base_gaussian_yolo --config_path=conformalbb/config/coco_val --load_collect_pred=gaussian_yolo_x101fpn_base_gaussian_yolo  --risk_control=gaussian_yolo --alpha=0.1 --run_risk_control --save_file_control --run_eval --save_file_eval --file_name_suffix=_base_gaussian_yolo_onesided --device=cuda
 
     Ref: https://arxiv.org/abs/1904.04620
+         https://github.com/motokimura/PyTorch_Gaussian_YOLOv3
     """
 
     def __init__(self, cfg, cfg_yolo, args, nr_class, filedir, log, logger):
