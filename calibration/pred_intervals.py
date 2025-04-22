@@ -1,4 +1,7 @@
 import torch
+# For copula baselines uncomment (see https://arxiv.org/abs/2311.10900):
+#   import numpy as np
+#   from copulae import GumbelCopula, EmpiricalCopula, pseudo_obs
 
 
 def get_quantile(scores: torch.Tensor, alpha: torch.Tensor, n, verbose: bool = False):
@@ -28,9 +31,6 @@ def compute_quantile(
     Compute quantile for the desired nominal coverage level with 
     different box correction methods (multiple testing corrections).
     
-    Options: naive_max, naive_mean, naive_quant, bonferroni, bonferroni_sidak, holm, holm_sidak, simes, rank_global, rank_coord, score_global
-    Of relevance for the paper: bonferroni, rank_global, rank_coord, score_global
-    
     Args:
         scores (Tensor): Conformity scores computed for calibration samples.
         box_correction (str): Type of box correction to apply.
@@ -53,19 +53,6 @@ def compute_quantile(
             i, j = s * 4, s * 4 + 4
             quant[i:j] = torch.max(q[:, i:j])
 
-    elif box_correction == "naive_mean":
-        # mean over coordinate quantiles as global quantile
-        q = get_quantile(scores, alpha, n)
-        for s in range(nr_scores // 4):
-            i, j = s * 4, s * 4 + 4
-            quant[i:j] = torch.mean(q[:, i:j])
-
-    elif box_correction == "naive_quant":
-        # global quantiles across all coordinate scores concatenated
-        for s in range(nr_scores // 4):
-            i, j = s * 4, s * 4 + 4
-            quant[i:j] = get_quantile(scores[:, i:j].flatten(), alpha, n)
-
     elif box_correction == "bonferroni":
         # FWER Bonferroni correction
         alpha_bonf = alpha / 4
@@ -75,37 +62,6 @@ def compute_quantile(
         # FWER Bonferroni correction with Sidak improvement
         alpha_bsidak = 1 - (1 - alpha) ** 0.25
         quant[:] = get_quantile(scores, alpha_bsidak, n)
-
-    elif box_correction == "holm":
-        # FWER Holm correction
-        alpha_holm = torch.zeros(4)
-        for k in range(1, 5):
-            alpha_holm[k - 1] = alpha / (4 + 1 - k)
-        q = get_quantile(scores, alpha_holm, n)
-        for s in range(nr_scores // 4):
-            i, j = s * 4, s * 4 + 4
-            quant[i:j] = torch.diagonal(q[:, i:j])
-
-    elif box_correction == "holm_sidak":
-        # FWER Holm correction with Sidak improvement
-        alpha_hsidak = torch.zeros(4)
-        for k in range(1, 5):
-            alpha_hsidak[k - 1] = 1 - (1 - alpha) ** (1 / (4 + 1 - k))
-        q = get_quantile(scores, alpha_hsidak, n)
-        for s in range(nr_scores // 4):
-            i, j = s * 4, s * 4 + 4
-            quant[i:j] = torch.diagonal(q[:, i:j])
-
-    elif box_correction == "simes":
-        # FWER Simes correction
-        alpha_simes = torch.zeros(4)
-        for k in range(1, 5):
-            alpha_simes[k - 1] = k * alpha / 4
-        assert torch.any(alpha.repeat(4) - alpha_simes <= 0), "H is not rejected"
-        q = get_quantile(scores, alpha_simes, n)
-        for s in range(nr_scores // 4):
-            i, j = s * 4, s * 4 + 4
-            quant[i:j] = torch.diagonal(q[:, i:j])
 
     elif box_correction == "rank_global":
         # Max-rank algorithm v1: coordinate quantiles as informed via global quantile over max ranks
@@ -118,7 +74,8 @@ def compute_quantile(
 
     elif box_correction == "rank_coord":
         # Max-rank algorithm v2: coordinate quantiles as informed via global quantile over max ranks with coordinate-wise improvement
-        # This is the method used in the paper and usually gives slightly tighter intervals than Max-rank algorithm v1
+        # This method usually gives slightly tighter intervals than Max-rank algorithm v1,
+        # but is also prone to slight undercoverage (within empirical target range)
         ranks = torch.argsort(torch.argsort(scores, dim=0), dim=0)
         for s in range(nr_scores // 4):
             i, j = s * 4, s * 4 + 4
@@ -132,11 +89,35 @@ def compute_quantile(
 
     elif box_correction == "score_global":
         # Global quantile using max on scores directly instead of on ranks (as in Max-rank v1)
-        # This correction is also considered by Andeol et al. (2023)
+        # This correction is also considered by Andeol et al. (2023), 
+        # and in fact equates to Westfall & Young's 'max-T' correction.
         for s in range(nr_scores // 4):
             i, j = s * 4, s * 4 + 4
             max_score = torch.max(scores[:, i:j], dim=1)[0]
             quant[i:j] = get_quantile(max_score, alpha, n)
+    
+    # For copula baselines uncomment (see https://arxiv.org/abs/2311.10900):
+    
+    # elif box_correction == "gumbel_copula":
+    #     cop = GumbelCopula(dim=4)
+    #     for s in range(nr_scores // 4):
+    #         i, j = s * 4, s * 4 + 4
+    #         if (scores[:, i:j].shape[0] < 4):
+    #             alpha_gumb = alpha
+    #         else:
+    #             cop.fit(scores[:, i:j].numpy())
+    #             theta = cop.params
+    #             alpha_gumb = 1 - (1 - alpha)**(1/(4**(1/theta)))
+    #         quant[i:j] = get_quantile(scores[:, i:j], alpha_gumb, n)
+
+    # elif box_correction == "emp_copula":
+    #     # No analytical solution so create alpha search space (0, alpha+0.1)
+    #     test_alpha = np.tile(np.arange(0.0, alpha+0.1, step=1e-4), (4, 1)).T
+    #     for s in range(nr_scores // 4):
+    #         i, j = s * 4, s * 4 + 4
+    #         ecop = EmpiricalCopula(pseudo_obs(scores[:, i:j].numpy()))
+    #         alpha_emp = test_alpha[ecop.cdf(1-test_alpha) >= (1-alpha.item())].max()
+    #         quant[i:j] = get_quantile(scores[:, i:j], alpha_emp, n)
 
     else:  # no box correction
         quant[:] = get_quantile(scores, alpha, n)

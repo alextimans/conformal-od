@@ -62,11 +62,7 @@ CALIBRATION:
   # nr of trials/splits/runs to average metrics over 
   TRIALS: 100 
   # box-level quantile/MHT correction scheme; 
-  # options:
-  #   naive_max, naive_mean, naive_quant, bonferroni, bonferroni_sidak
-  #   holm, holm_sidak, simes, rank_global, rank_coord, score_global, null
-  # of primary interest: 
-  #   bonferroni, rank_global, rank_coord, score_global
+  # options: see compute_quantile() args in calibration/pred_intervals.py
   BOX_CORRECTION: "rank_coord" 
   # box quantile selection strategy given a label set
   BOX_SET_STRATEGY: "max"
